@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #070b11;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgba(20, 184, 166, 0.08), transparent 36%),
+      radial-gradient(circle at 88% 4%, rgba(34, 211, 238, 0.06), transparent 32%);
+    min-height: 100vh;
+  }
+}
+
+.nexus-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(34, 48, 71, 0.28) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 48, 71, 0.28) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0c121b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #223047;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334869;
+}
+

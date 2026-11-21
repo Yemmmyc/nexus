@@ -1,0 +1,11 @@
+[project]
+name = "nexus-backend"
+version = "0.1.0"
+description = "NEXUS — Autonomous Infrastructure Resilience & Trust Engine (Backend)"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-v"
+

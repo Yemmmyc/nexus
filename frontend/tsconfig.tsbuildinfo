@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/api/client.ts","./src/components/common/Panel.tsx","./src/components/layout/Sidebar.tsx","./src/components/layout/TopBar.tsx","./src/types/health.ts","./src/views/AuditView.tsx","./src/views/DashboardView.tsx","./src/views/IncidentsView.tsx","./src/views/TopologyView.tsx"],"version":"5.9.3"}
