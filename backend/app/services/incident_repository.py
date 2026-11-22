@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.db.models import AuditLogORM, IncidentORM, InvestigationORM
+from app.db.models import AuditLogORM, IncidentORM, InvestigationORM, RemediationPlanORM
 from app.schemas.investigation import (
     BlastRadiusAssessment,
     ConfidenceAssessment,
@@ -73,7 +73,8 @@ def upsert_incident(
 
 
 def clear_persisted_incidents(db: Session) -> None:
-    """Remove persisted incidents and investigations during a clean simulation reset."""
+    """Remove persisted remediation plans, investigations, and incidents during reset."""
+    db.execute(delete(RemediationPlanORM))
     db.execute(delete(InvestigationORM))
     db.execute(delete(IncidentORM))
     db.commit()

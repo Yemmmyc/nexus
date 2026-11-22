@@ -7,7 +7,7 @@ from app.schemas.simulation import DetectedIncident, ScenarioDefinition, Simulat
 from app.schemas.telemetry import MonitoringEvent, ServiceHealthStatus, ServiceTelemetrySample
 from app.schemas.topology import DependencyEdgeState, ServiceNodeState, TopologyResponse
 from app.simulator.detector import IncidentDetector
-from app.simulator.models import ActiveFault, ServiceRuntimeState
+from app.simulator.models import ActiveFault, ActiveMitigation, ServiceRuntimeState
 from app.simulator.propagation import propagate_tick
 from app.simulator.scenarios import ScenarioManager
 from app.simulator.topology_graph import TopologyGraph
@@ -34,6 +34,7 @@ class SimulationEngine:
         self._tick: int = 0
         self._active_scenario: str | None = None
         self._active_faults: dict[str, ActiveFault] = {}
+        self._active_mitigations: dict[str, ActiveMitigation] = {}
         self._states: dict[str, ServiceRuntimeState] = {}
         self._history: dict[str, deque[ServiceTelemetrySample]] = {}
         self._recent_events: deque[MonitoringEvent] = deque(maxlen=200)
@@ -60,6 +61,7 @@ class SimulationEngine:
         self._tick = 0
         self._active_scenario = None
         self._active_faults.clear()
+        self._active_mitigations.clear()
         self._recent_events.clear()
 
         self._states = {
@@ -93,6 +95,10 @@ class SimulationEngine:
             expected_severity=spec.expected_severity,
         )
 
+    def apply_mitigation(self, mitigation: ActiveMitigation) -> None:
+        """Register an approved, allowlisted simulated mitigation on a target service."""
+        self._active_mitigations[mitigation.target_service_id] = mitigation
+
     def step(self, ticks: int = 1) -> tuple[list[MonitoringEvent], list[DetectedIncident]]:
         """Deterministically advance the simulation by `ticks` steps."""
         if ticks < 1:
@@ -109,6 +115,7 @@ class SimulationEngine:
                 topology=self.topology,
                 previous_states=self._states,
                 active_faults=self._active_faults,
+                active_mitigations=self._active_mitigations or None,
             )
             self._record_samples()
 
@@ -118,6 +125,7 @@ class SimulationEngine:
                 timestamp=self._current_sim_timestamp(),
                 states=self._states,
                 active_scenario=self._active_scenario,
+                auto_resolve_on_healthy=not bool(self._active_mitigations),
             )
             for ev in events:
                 self._recent_events.append(ev)

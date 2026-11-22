@@ -68,6 +68,19 @@ class ActiveFault:
     injected_tick: int
 
 
+@dataclass(frozen=True)
+class ActiveMitigation:
+    """Runtime instance of an approved, allowlisted simulated remediation."""
+
+    action_id: str
+    target_service_id: str
+    applied_tick: int
+    ramp_tau_ticks: float = 1.5
+    fault_relief_factor: float = 0.0
+    edge_isolation_factor: float = 0.0
+    drain_boost_multiplier: float = 1.0
+
+
 @dataclass
 class ServiceRuntimeState:
     """Mutable per-service state updated on every simulation tick."""

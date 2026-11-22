@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.db.database import SessionLocal, init_db
 from app.db.seed import seed_initial_data
+from app.services.remediation_repository import RemediationService
 from app.services.simulation_service import SimulationController
 
 
@@ -43,6 +44,7 @@ def create_app(initialize_db: bool = True) -> FastAPI:
         tick_interval_seconds=settings.sim_tick_interval_seconds
     )
     app.state.investigation_orchestrator = InvestigationOrchestrator(settings=settings)
+    app.state.remediation_service = RemediationService()
 
     app.add_middleware(
         CORSMiddleware,

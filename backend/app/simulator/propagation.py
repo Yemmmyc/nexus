@@ -3,7 +3,7 @@
 import math
 
 from app.schemas.telemetry import ServiceHealthStatus, ServiceMetrics
-from app.simulator.models import ActiveFault, ServiceBaseline, ServiceRuntimeState
+from app.simulator.models import ActiveFault, ActiveMitigation, ServiceBaseline, ServiceRuntimeState
 from app.simulator.topology_graph import TopologyGraph
 
 
@@ -52,6 +52,7 @@ def propagate_tick(
     topology: TopologyGraph,
     previous_states: dict[str, ServiceRuntimeState],
     active_faults: dict[str, ActiveFault],
+    active_mitigations: dict[str, ActiveMitigation] | None = None,
 ) -> dict[str, ServiceRuntimeState]:
     """Compute the next tick's telemetry across all services using topological propagation.
 
@@ -62,6 +63,13 @@ def propagate_tick(
     """
     next_states: dict[str, ServiceRuntimeState] = {}
     service_indices = {svc.id: idx for idx, svc in enumerate(topology.services)}
+    mitigations = active_mitigations or {}
+
+    def _mitigation_ramp(mit: ActiveMitigation) -> float:
+        elapsed = max(0, tick - mit.applied_tick + 1)
+        if elapsed == 0:
+            return 0.0
+        return 1.0 - math.exp(-elapsed / max(0.25, mit.ramp_tau_ticks))
 
     # Pre-compute worker effective drain capacity from previous tick so order-queue
     # backlog responds realistically to worker slowdown without cyclic graph evaluation.
@@ -85,6 +93,10 @@ def propagate_tick(
         fault = active_faults.get(service_id)
         if fault is not None:
             p = fault_pressure(tick, fault.injected_tick, fault.spec.ramp_tau_ticks)
+            # Apply smooth deterministic relief if an allowlisted mitigation targets this service
+            svc_mit = mitigations.get(service_id)
+            if svc_mit is not None and svc_mit.fault_relief_factor > 0.0:
+                p = p * max(0.0, 1.0 - svc_mit.fault_relief_factor * _mitigation_ramp(svc_mit))
             intrinsic_latency = baseline.baseline_latency_ms * (
                 1.0
                 + fault.spec.latency_linear_gain * p
@@ -109,7 +121,27 @@ def propagate_tick(
                 - prev_worker.error_rate * 1.8
                 - min(0.82, max(0.0, prev_worker.latency_ms - 80.0) / 1100.0),
             )
-            drain_capacity_rps = 210.0 * worker_slowdown
+            drain_boost = 1.0
+            for boost_target in ("worker-fulfillment", service_id):
+                b_mit = mitigations.get(boost_target)
+                if b_mit is not None and b_mit.drain_boost_multiplier > 1.0:
+                    drain_boost = max(
+                        drain_boost,
+                        1.0 + (b_mit.drain_boost_multiplier - 1.0) * _mitigation_ramp(b_mit),
+                    )
+            drain_capacity_rps = 210.0 * worker_slowdown * drain_boost
+            # Once the DB dependency recovers under active mitigation, fulfillment workers
+            # unblock from DB lock contention and batch-drain the accumulated backlog.
+            if (
+                mitigations
+                and prev_metrics.queue_depth > baseline.baseline_queue_depth
+                and previous_states["postgres-primary"].status == "healthy"
+            ):
+                backlog = prev_metrics.queue_depth - baseline.baseline_queue_depth
+                drain_capacity_rps = max(
+                    drain_capacity_rps,
+                    (240.0 + min(460.0, backlog * 0.45)) * drain_boost,
+                )
             net_delta = (enqueue_rps - drain_capacity_rps) * tick_interval_seconds
             if net_delta > 0:
                 queue_depth = int(round(prev_metrics.queue_depth + net_delta))
@@ -129,6 +161,13 @@ def propagate_tick(
         dep_error_contrib = 0.0
         dep_sat_contrib = 0.0
 
+        iso_dampening = 1.0
+        svc_iso = mitigations.get(service_id)
+        if svc_iso is not None and svc_iso.edge_isolation_factor > 0.0:
+            iso_dampening = max(
+                0.15, 1.0 - svc_iso.edge_isolation_factor * _mitigation_ramp(svc_iso)
+            )
+
         for edge in topology.dependencies_of(service_id):
             dep_baseline = topology.get_service(edge.target_id)
             dep_metrics = next_states[edge.target_id].metrics
@@ -141,9 +180,11 @@ def propagate_tick(
             )
             excess_error = max(0.0, dep_metrics.error_rate - dep_baseline.baseline_error_rate)
 
-            dep_latency_contrib += edge.impact_weight * excess_latency * 0.82
-            dep_error_contrib += edge.impact_weight * (excess_error * 0.95 + 0.28 * slo_excess_ratio)
-            dep_sat_contrib += edge.impact_weight * min(58.0, (excess_latency / 32.0))
+            dep_latency_contrib += edge.impact_weight * excess_latency * 0.82 * iso_dampening
+            dep_error_contrib += (
+                edge.impact_weight * (excess_error * 0.95 + 0.28 * slo_excess_ratio) * iso_dampening
+            )
+            dep_sat_contrib += edge.impact_weight * min(58.0, (excess_latency / 32.0)) * iso_dampening
 
         # 4. Combine intrinsic + propagated signals with physical bounds
         latency_ms = round(_clamp(intrinsic_latency + dep_latency_contrib, 1.0, 8000.0), 2)

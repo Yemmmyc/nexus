@@ -4,6 +4,7 @@ import type {
   IncidentTimelineResponse,
   InvestigationResult,
 } from "../types/incidents";
+import type { RemediationPlan, VerificationResult } from "../types/remediation";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
@@ -87,4 +88,49 @@ export async function fetchInvestigation(incidentId: string): Promise<Investigat
 
 export function fetchIncidentTimeline(incidentId: string): Promise<IncidentTimelineResponse> {
   return requestJson<IncidentTimelineResponse>(`/incidents/${incidentId}/timeline`);
+}
+
+export async function fetchRemediationPlans(incidentId: string): Promise<RemediationPlan[]> {
+  const data = await requestJson<{ plans: RemediationPlan[] }>(
+    `/remediations?incident_id=${encodeURIComponent(incidentId)}`
+  );
+  return data.plans;
+}
+
+export function createRemediationPlan(incidentId: string): Promise<RemediationPlan> {
+  return requestJson<RemediationPlan>(`/incidents/${incidentId}/remediations`, {
+    method: "POST",
+  });
+}
+
+export function approveRemediationPlan(
+  planId: string,
+  actor = "sre-operator",
+  comment = ""
+): Promise<RemediationPlan> {
+  return requestJson<RemediationPlan>(`/remediations/${planId}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ actor, comment }),
+  });
+}
+
+export function rejectRemediationPlan(
+  planId: string,
+  actor = "sre-operator",
+  comment = ""
+): Promise<RemediationPlan> {
+  return requestJson<RemediationPlan>(`/remediations/${planId}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ actor, comment }),
+  });
+}
+
+export function executeRemediationPlan(planId: string): Promise<RemediationPlan> {
+  return requestJson<RemediationPlan>(`/remediations/${planId}/execute`, {
+    method: "POST",
+  });
+}
+
+export function fetchRemediationVerification(planId: string): Promise<VerificationResult> {
+  return requestJson<VerificationResult>(`/remediations/${planId}/verification`);
 }

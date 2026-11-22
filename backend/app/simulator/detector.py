@@ -45,6 +45,7 @@ class IncidentDetector:
         timestamp: datetime,
         states: dict[str, ServiceRuntimeState],
         active_scenario: str | None,
+        auto_resolve_on_healthy: bool = True,
     ) -> tuple[list[MonitoringEvent], list[DetectedIncident]]:
         """Generate monitoring events for breached thresholds and correlate into incidents."""
         tick_events: list[MonitoringEvent] = []
@@ -71,16 +72,17 @@ class IncidentDetector:
 
         newly_created: list[DetectedIncident] = []
         if not unhealthy_services:
-            # Resolve any previously active incidents if all services are healthy again
-            for inc_id, inc in list(self._incidents.items()):
-                if inc.status != "RESOLVED":
-                    self._incidents[inc_id] = inc.model_copy(
-                        update={
-                            "status": "RESOLVED",
-                            "updated_tick": tick,
-                            "updated_at": timestamp,
-                        }
-                    )
+            if auto_resolve_on_healthy:
+                # Resolve any previously active incidents if all services are healthy again
+                for inc_id, inc in list(self._incidents.items()):
+                    if inc.status != "RESOLVED":
+                        self._incidents[inc_id] = inc.model_copy(
+                            update={
+                                "status": "RESOLVED",
+                                "updated_tick": tick,
+                                "updated_at": timestamp,
+                            }
+                        )
             return tick_events, newly_created
 
         # Group unhealthy services into connected components in the topology

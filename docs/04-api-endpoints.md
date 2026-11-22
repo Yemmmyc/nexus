@@ -183,42 +183,37 @@ Returns a chronological timeline combining monitoring events and SQLite `audit_l
 
 ---
 
-## 4. Remediation & Trust Policy Endpoints
+## 4. Remediation & Trust Policy Endpoints (Phase 3)
 
-### `GET /api/v1/policies`
-Lists the active declarative safety & trust policies enforced by the Trust Agent.
-- **Response (`200 OK`):** `{ "policies": [ /* PolicyRule[] */ ] }`
+### `GET /api/v1/remediations/catalog`
+Lists all static allowlisted simulated remediation actions (`expand_db_connection_pool`, `enable_circuit_breaker`, `scale_queue_consumers`).
+
+### `GET /api/v1/remediations`
+Lists persisted remediation plans (optional query param `incident_id`).
+
+### `GET /api/v1/remediations/{plan_id}`
+Returns full remediation plan details including policy verdict, approval state, execution record, and verification result.
+
+### `POST /api/v1/incidents/{incident_id}/remediations`
+Invokes the Recovery Agent to propose an allowlisted plan and submits it to the Trust Agent for deterministic policy evaluation (`AUTO_APPROVE`, `REQUIRE_HUMAN_APPROVAL`, or `DENY`). Audits `REMEDIATION_PLAN_CREATED` and `POLICY_EVALUATED`.
+
+### `POST /api/v1/remediations/{plan_id}/evaluate`
+Re-evaluates Trust Agent policy rules on an unexecuted remediation plan and audits `POLICY_EVALUATED`.
 
 ### `POST /api/v1/remediations/{plan_id}/approve`
-Human operator approves a remediation plan that is `AWAITING_APPROVAL`, triggering controlled simulated execution followed by automatic verification.
-- **Request Body:**
-  ```json
-  {
-    "approved_by": "sre-operator",
-    "comment": "Confirmed DB pool saturation from telemetry evidence; approved safe expansion."
-  }
-  ```
-- **Response (`200 OK`):**
-  ```json
-  {
-    "plan_id": "plan-001",
-    "status": "EXECUTING",
-    "approved_by": "sre-operator",
-    "approved_at": "2026-11-21T18:31:10Z"
-  }
-  ```
-- **Errors:** `409 Conflict` if plan is not in `AWAITING_APPROVAL` state; `403 Forbidden` if Trust Agent verdict is `DENY`.
+Records human operator approval for a `REQUIRE_HUMAN_APPROVAL` plan in `PENDING` state. Rejects `DENY` plans (`403`) and duplicate/invalid approvals (`409`). Audits `REMEDIATION_APPROVED`.
 
 ### `POST /api/v1/remediations/{plan_id}/reject`
-Human operator rejects a proposed remediation plan. No simulated actions are executed.
-- **Request Body:**
-  ```json
-  {
-    "rejected_by": "sre-operator",
-    "reason": "Prefer manual inspection before scaling DB pool."
-  }
-  ```
-- **Response (`200 OK`):** `{ "plan_id": "plan-001", "status": "REJECTED" }`
+Records human operator rejection for a `REQUIRE_HUMAN_APPROVAL` plan in `PENDING` state. Audits `REMEDIATION_REJECTED`.
+
+### `POST /api/v1/remediations/{plan_id}/execute`
+Executes an approved (or auto-approved) allowlisted simulated remediation against `SimulationEngine` and initializes verification (`IN_PROGRESS`). Blocks denied, pending, rejected, or duplicate execution. Audits `REMEDIATION_EXECUTION_STARTED`, `REMEDIATION_EXECUTION_COMPLETED` (or `FAILED`), and `VERIFICATION_STARTED`.
+
+### `GET /api/v1/remediations/{plan_id}/execution`
+Returns the simulated `ExecutionRecord` (`404` if not yet executed).
+
+### `GET /api/v1/remediations/{plan_id}/verification`
+Runs the Verification Agent against live simulated telemetry across consecutive ticks (`IN_PROGRESS`, `VERIFIED`, or `FAILED`). Transitions the incident to `RESOLVED` and audits `VERIFICATION_COMPLETED` + `INCIDENT_RESOLVED` **only** when `VERIFIED` (or audits `VERIFICATION_FAILED` when the verification window expires without recovery).
 
 ---
 

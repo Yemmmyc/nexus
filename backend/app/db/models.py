@@ -104,3 +104,36 @@ class InvestigationORM(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
 
+
+class RemediationPlanORM(Base):
+    """Persistent policy-gated simulated remediation plan, execution, and verification record."""
+
+    __tablename__ = "remediation_plans"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    incident_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("incidents.id"), nullable=False, index=True
+    )
+    action_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    action_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    target_service: Mapped[str] = mapped_column(String(64), nullable=False)
+    parameters: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    evidence_refs: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    rationale: Mapped[str] = mapped_column(String(1024), nullable=False)
+    expected_effects: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    limitations: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    risks: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    preconditions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    policy_decision: Mapped[str] = mapped_column(String(32), nullable=False, default="REQUIRE_HUMAN_APPROVAL")
+    policy_evaluation: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    approval_status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
+    approved_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approval_comment: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    execution_status: Mapped[str] = mapped_column(String(32), nullable=False, default="NOT_STARTED")
+    execution_record: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    verification_status: Mapped[str] = mapped_column(String(32), nullable=False, default="NOT_STARTED")
+    verification_result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
+

@@ -19,6 +19,7 @@ import {
   investigateIncident,
 } from "../api/client";
 import { Panel } from "../components/common/Panel";
+import { RecoveryOperationsPanel } from "../components/recovery/RecoveryOperationsPanel";
 import type {
   DetectedIncident,
   InvestigationResult,
@@ -468,6 +469,15 @@ export function IncidentsView() {
               </div>
             )}
           </Panel>
+
+          {/* Policy-Gated Recovery Operations */}
+          <RecoveryOperationsPanel
+            incident={selectedIncident}
+            onStateChanged={() => {
+              void loadIncidents();
+              void loadIncidentDetails(selectedIncident.id);
+            }}
+          />
 
           {/* Incident Timeline */}
           <Panel
