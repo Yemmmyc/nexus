@@ -12,3 +12,17 @@ export interface HealthResponse {
   timestamp: string;
 }
 
+export interface SimulationStatusResponse {
+  running: boolean;
+  tick: number;
+  sim_time_s: number;
+  tick_interval_seconds: number;
+  active_scenario: string | null;
+  resilience_score: number;
+  total_services: number;
+  healthy_services: number;
+  degraded_services: number;
+  critical_services: number;
+  active_incidents_count: number;
+}
+

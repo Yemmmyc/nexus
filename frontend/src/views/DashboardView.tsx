@@ -1,51 +1,169 @@
-import { Activity, AlertTriangle, CheckCircle2, Layers, Shield } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  FastForward,
+  Flame,
+  Layers,
+  Play,
+  RotateCcw,
+  Shield,
+  Square,
+} from "lucide-react";
 import { Panel } from "../components/common/Panel";
-import type { HealthResponse } from "../types/health";
+import type { HealthResponse, SimulationStatusResponse } from "../types/health";
 
 interface DashboardViewProps {
   health: HealthResponse | null;
+  simStatus: SimulationStatusResponse | null;
+  isSimBusy: boolean;
+  onStartSim: () => void;
+  onStopSim: () => void;
+  onAdvanceTick: () => void;
+  onInjectDbCascade: () => void;
+  onResetSim: () => void;
 }
 
-const KPI_CARDS = [
-  {
-    label: "Resilience Score",
-    value: "98.0",
-    unit: "/ 100",
-    detail: "Baseline standby — simulator activates in Phase 1",
-    accent: "text-nexus-cyan",
-    icon: Shield,
-  },
-  {
-    label: "Active Incidents",
-    value: "0",
-    unit: "open",
-    detail: "0 critical · 0 high · 0 medium",
-    accent: "text-nexus-emerald",
-    icon: AlertTriangle,
-  },
-  {
-    label: "Monitored Services",
-    value: "7",
-    unit: "nodes",
-    detail: "8 dependency edges seeded in SQLite",
-    accent: "text-nexus-teal",
-    icon: Layers,
-  },
-  {
-    label: "Policy Gate Status",
-    value: "ACTIVE",
-    unit: "safe",
-    detail: "Allowlisted simulated remediation only",
-    accent: "text-slate-100",
-    icon: CheckCircle2,
-  },
-];
+export function DashboardView({
+  health,
+  simStatus,
+  isSimBusy,
+  onStartSim,
+  onStopSim,
+  onAdvanceTick,
+  onInjectDbCascade,
+  onResetSim,
+}: DashboardViewProps) {
+  const resilience = simStatus ? simStatus.resilience_score.toFixed(1) : "100.0";
+  const activeIncidents = simStatus?.active_incidents_count ?? 0;
+  const healthyCount = simStatus?.healthy_services ?? 7;
+  const degradedCount = simStatus?.degraded_services ?? 0;
+  const criticalCount = simStatus?.critical_services ?? 0;
 
-export function DashboardView({ health }: DashboardViewProps) {
+  const kpiCards = [
+    {
+      label: "Resilience Score",
+      value: resilience,
+      unit: "/ 100",
+      detail: simStatus
+        ? `Tick ${simStatus.tick} · Sim time ${simStatus.sim_time_s.toFixed(0)}s`
+        : "Connecting to simulator...",
+      accent:
+        (simStatus?.resilience_score ?? 100) < 70
+          ? "text-nexus-crimson"
+          : (simStatus?.resilience_score ?? 100) < 90
+            ? "text-nexus-amber"
+            : "text-nexus-cyan",
+      icon: Shield,
+    },
+    {
+      label: "Active Incidents",
+      value: String(activeIncidents),
+      unit: "open",
+      detail:
+        simStatus?.active_scenario
+          ? `Scenario: ${simStatus.active_scenario}`
+          : "No active fault scenario",
+      accent: activeIncidents > 0 ? "text-nexus-crimson" : "text-nexus-emerald",
+      icon: AlertTriangle,
+    },
+    {
+      label: "Service Health",
+      value: `${healthyCount}/${simStatus?.total_services ?? 7}`,
+      unit: "healthy",
+      detail: `${degradedCount} degraded · ${criticalCount} critical`,
+      accent:
+        criticalCount > 0
+          ? "text-nexus-crimson"
+          : degradedCount > 0
+            ? "text-nexus-amber"
+            : "text-nexus-teal",
+      icon: Layers,
+    },
+    {
+      label: "Simulator Engine",
+      value: simStatus?.running ? "RUNNING" : "IDLE",
+      unit: `${simStatus?.tick_interval_seconds ?? 2}s`,
+      detail: "Deterministic local propagation engine",
+      accent: simStatus?.running ? "text-nexus-emerald" : "text-slate-100",
+      icon: CheckCircle2,
+    },
+  ];
+
   return (
     <div className="space-y-6">
+      <Panel
+        title="Simulation Controls"
+        subtitle="Phase 1 deterministic infrastructure simulator — control tick loop and inject cascading failures"
+        rightSlot={
+          <span
+            className={`rounded-md border px-2.5 py-1 font-mono text-[11px] ${
+              simStatus?.running
+                ? "border-nexus-emerald/40 bg-nexus-emerald/10 text-nexus-emerald"
+                : "border-obsidian-700 bg-obsidian-950 text-slate-400"
+            }`}
+          >
+            {simStatus?.running ? "LOOP ACTIVE" : "STEP / STANDBY"}
+          </span>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2.5">
+          {!simStatus?.running ? (
+            <button
+              type="button"
+              disabled={isSimBusy}
+              onClick={onStartSim}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-nexus-emerald/40 bg-nexus-emerald/15 px-3.5 py-2 text-xs font-medium text-emerald-200 transition hover:bg-nexus-emerald/25 disabled:opacity-50"
+            >
+              <Play className="h-3.5 w-3.5" />
+              Start Simulation
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={isSimBusy}
+              onClick={onStopSim}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-nexus-amber/40 bg-nexus-amber/15 px-3.5 py-2 text-xs font-medium text-amber-200 transition hover:bg-nexus-amber/25 disabled:opacity-50"
+            >
+              <Square className="h-3.5 w-3.5" />
+              Stop Simulation
+            </button>
+          )}
+
+          <button
+            type="button"
+            disabled={isSimBusy}
+            onClick={onAdvanceTick}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-obsidian-700 bg-obsidian-850 px-3.5 py-2 text-xs font-medium text-slate-200 transition hover:border-nexus-cyan/50 hover:text-nexus-cyan disabled:opacity-50"
+          >
+            <FastForward className="h-3.5 w-3.5" />
+            Advance +1 Tick
+          </button>
+
+          <button
+            type="button"
+            disabled={isSimBusy}
+            onClick={onInjectDbCascade}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-nexus-crimson/40 bg-nexus-crimson/15 px-3.5 py-2 text-xs font-medium text-rose-200 transition hover:bg-nexus-crimson/25 disabled:opacity-50"
+          >
+            <Flame className="h-3.5 w-3.5" />
+            Inject db_latency_cascade
+          </button>
+
+          <button
+            type="button"
+            disabled={isSimBusy}
+            onClick={onResetSim}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-obsidian-700 bg-obsidian-950 px-3.5 py-2 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-slate-100 disabled:opacity-50"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset Baseline
+          </button>
+        </div>
+      </Panel>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {KPI_CARDS.map((card) => {
+        {kpiCards.map((card) => {
           const Icon = card.icon;
           return (
             <div
@@ -70,79 +188,34 @@ export function DashboardView({ health }: DashboardViewProps) {
         })}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <Panel
-          title="Infrastructure Health Matrix"
-          subtitle="Seeded 7-service fintech topology (Phase 0 baseline)"
-          className="xl:col-span-2"
-          rightSlot={
-            <span className="rounded-md border border-nexus-emerald/30 bg-nexus-emerald/10 px-2.5 py-1 font-mono text-[11px] text-nexus-emerald">
-              ALL SYSTEMS STANDBY
-            </span>
-          }
-        >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { id: "api-gateway", tier: "edge", slo: "300ms" },
-              { id: "auth-service", tier: "application", slo: "200ms" },
-              { id: "checkout-api", tier: "application", slo: "350ms" },
-              { id: "payment-service", tier: "application", slo: "400ms" },
-              { id: "order-queue", tier: "messaging", slo: "150ms" },
-              { id: "worker-fulfillment", tier: "worker", slo: "500ms" },
-              { id: "postgres-primary", tier: "database", slo: "100ms" },
-            ].map((svc) => (
-              <div
-                key={svc.id}
-                className="flex items-center justify-between rounded-lg border border-obsidian-700/70 bg-obsidian-950/75 px-3.5 py-3"
-              >
-                <div>
-                  <div className="font-mono text-xs font-medium text-slate-100">{svc.id}</div>
-                  <div className="mt-0.5 text-[11px] uppercase tracking-wider text-slate-500">
-                    {svc.tier} · SLO {svc.slo}
-                  </div>
-                </div>
-                <span className="h-2.5 w-2.5 rounded-full bg-nexus-emerald/80 shadow-[0_0_8px_rgba(16,185,129,0.55)]" />
-              </div>
-            ))}
+      <Panel
+        title="Platform Readiness"
+        subtitle="Live backend & deterministic simulator status"
+        rightSlot={<Activity className="h-4 w-4 text-nexus-cyan" />}
+      >
+        <dl className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border border-obsidian-700/60 bg-obsidian-950/75 p-3">
+            <dt className="text-slate-400">API Version</dt>
+            <dd className="mt-1 font-mono text-slate-100">/api/v1 ({health?.version ?? "0.1.0"})</dd>
           </div>
-        </Panel>
-
-        <Panel
-          title="Platform Readiness"
-          subtitle="Live backend telemetry & scaffold status"
-          rightSlot={<Activity className="h-4 w-4 text-nexus-cyan" />}
-        >
-          <dl className="space-y-3 text-xs">
-            <div className="flex items-center justify-between border-b border-obsidian-700/60 pb-2.5">
-              <dt className="text-slate-400">API Version</dt>
-              <dd className="font-mono text-slate-100">/api/v1 ({health?.version ?? "0.1.0"})</dd>
-            </div>
-            <div className="flex items-center justify-between border-b border-obsidian-700/60 pb-2.5">
-              <dt className="text-slate-400">Database Engine</dt>
-              <dd className="font-mono text-nexus-emerald">
-                {health?.db_connected ? "SQLite Connected" : "Awaiting API"}
-              </dd>
-            </div>
-            <div className="flex items-center justify-between border-b border-obsidian-700/60 pb-2.5">
-              <dt className="text-slate-400">AI Investigator Mode</dt>
-              <dd className="font-mono uppercase text-nexus-cyan">
-                {health?.ai_mode ?? "deterministic"}
-              </dd>
-            </div>
-            <div className="flex items-center justify-between border-b border-obsidian-700/60 pb-2.5">
-              <dt className="text-slate-400">Simulator Loop</dt>
-              <dd className="font-mono text-slate-300">
-                {health?.simulator_running ? "Running" : "Phase 1 Pending"}
-              </dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt className="text-slate-400">Execution Boundary</dt>
-              <dd className="font-mono text-nexus-teal">Simulated Only</dd>
-            </div>
-          </dl>
-        </Panel>
-      </div>
+          <div className="rounded-lg border border-obsidian-700/60 bg-obsidian-950/75 p-3">
+            <dt className="text-slate-400">Database Engine</dt>
+            <dd className="mt-1 font-mono text-nexus-emerald">
+              {health?.db_connected ? "SQLite Connected" : "Awaiting API"}
+            </dd>
+          </div>
+          <div className="rounded-lg border border-obsidian-700/60 bg-obsidian-950/75 p-3">
+            <dt className="text-slate-400">AI Mode</dt>
+            <dd className="mt-1 font-mono uppercase text-nexus-cyan">
+              {health?.ai_mode ?? "deterministic"}
+            </dd>
+          </div>
+          <div className="rounded-lg border border-obsidian-700/60 bg-obsidian-950/75 p-3">
+            <dt className="text-slate-400">Execution Boundary</dt>
+            <dd className="mt-1 font-mono text-nexus-teal">Simulated Only</dd>
+          </div>
+        </dl>
+      </Panel>
     </div>
   );
 }
-

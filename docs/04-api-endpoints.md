@@ -84,14 +84,22 @@ Returns the service dependency graph with live per-node telemetry and optional b
   }
   ```
 
+### `GET /api/v1/telemetry`
+Returns the latest telemetry sample for all services (or a single service).
+- **Query Params:** `service_id` (optional)
+- **Response (`200 OK`):** `{ "tick": 6, "samples": [ /* ServiceTelemetrySample[] */ ] }`
+
 ### `GET /api/v1/telemetry/history`
 Returns recent metric samples for charting sparklines or service drill-down.
 - **Query Params:** `service_id` (optional), `limit` (default `30`, max `120`)
-- **Response (`200 OK`):** `{ "samples": [ /* MetricSample[] */ ] }`
+- **Response (`200 OK`):** `{ "tick": 6, "samples": [ /* ServiceTelemetrySample[] */ ] }`
 
 ---
 
 ## 2. Simulation Control Endpoints
+
+### `GET /api/v1/simulation/status`
+Returns current simulation runtime state (running flag, tick, simulation time, active scenario, resilience score, service health counts, active incident count).
 
 ### `GET /api/v1/simulation/scenarios`
 Lists available built-in failure scenarios.
@@ -110,27 +118,33 @@ Lists available built-in failure scenarios.
   }
   ```
 
+### `POST /api/v1/simulation/start`
+Starts the periodic background simulation tick loop (~2s interval).
+- **Response (`200 OK`):** `SimulationStatusResponse` (`running: true`)
+
+### `POST /api/v1/simulation/stop`
+Stops the periodic background simulation tick loop.
+- **Response (`200 OK`):** `SimulationStatusResponse` (`running: false`)
+
+### `POST /api/v1/simulation/advance`
+Deterministically advances the simulation by `ticks` (`1..50`) without real-time waiting (enables reproducible testing and step-by-step demos).
+- **Request Body:** `{ "ticks": 1 }`
+- **Response (`200 OK`):** `SimulationStatusResponse`
+
 ### `POST /api/v1/simulation/inject`
-Injects a failure scenario into the local simulator and triggers telemetry propagation.
+Injects a failure scenario into the local simulator and triggers telemetry propagation on subsequent ticks.
 - **Request Body:**
   ```json
   {
     "scenario_id": "db_latency_cascade"
   }
   ```
-- **Response (`202 Accepted`):**
-  ```json
-  {
-    "status": "injected",
-    "scenario_id": "db_latency_cascade",
-    "injected_at": "2026-11-21T18:30:02Z"
-  }
-  ```
+- **Response (`202 Accepted`):** `SimulationStatusResponse`
 
 ### `POST /api/v1/simulation/reset`
-Resets all simulated services to healthy baseline, clears active faults, and optionally clears non-archived active incidents. (Audit logs record the reset event.)
-- **Request Body:** `{ "clear_history": false }`
-- **Response (`200 OK`):** `{ "status": "reset", "resilience_score": 97.5 }`
+Stops any active loop, resets all simulated services to healthy baseline, clears active faults, and optionally clears incidents. (Audit logs record the reset event.)
+- **Request Body:** `{ "clear_incidents": true }`
+- **Response (`200 OK`):** `SimulationStatusResponse`
 
 ### `POST /api/v1/settings/ai-mode`
 Switches the Investigator AI mode for live demos (`auto`, `llm`, `deterministic`).
@@ -142,18 +156,30 @@ Switches the Investigator AI mode for live demos (`auto`, `llm`, `deterministic`
 ## 3. Incident & Investigation Endpoints
 
 ### `GET /api/v1/incidents`
-Lists incidents ordered by `created_at DESC`.
-- **Query Params:** `status` (optional), `limit` (default `20`)
-- **Response (`200 OK`):** `{ "incidents": [ /* IncidentSummary[] */ ] }`
+Lists persisted incidents synced with the simulator, ordered newest first.
+- **Response (`200 OK`):** `{ "incidents": [ /* DetectedIncident[] */ ] }`
 
 ### `GET /api/v1/incidents/{incident_id}`
-Returns the full incident dossier: correlated events, investigation (RCA + evidence + confidence + limitations), risk assessment (blast radius), remediation plan, trust policy verdict, verification result, and agent run trace.
-- **Response (`200 OK`):** `IncidentDetail` object (see `05-data-models.md`).
+Returns the persisted incident record (severity, lifecycle status, detection tick/time, root-cause candidate, affected services, supporting events, and `investigation_status`).
+- **Response (`200 OK`):** `DetectedIncident`
 - **Errors:** `404 Not Found` if `incident_id` does not exist.
 
-### `POST /api/v1/incidents/{incident_id}/reinvestigate`
-Re-runs the Investigation -> Risk -> Recovery -> Trust pipeline for an active incident (useful for demonstrating LLM vs Deterministic comparison).
-- **Response (`202 Accepted`):** `{ "incident_id": "...", "status": "INVESTIGATING" }`
+### `POST /api/v1/incidents/{incident_id}/investigate`
+Executes the 3-role logical investigation pipeline (`Observer` → `Investigator` → `Risk Analyst`), persists findings to SQLite, and records `INVESTIGATION_STARTED`, `INVESTIGATION_COMPLETED`, and `INCIDENT_UPDATED` audit events.
+- **Response (`200 OK`):** `InvestigationResult`
+
+### `GET /api/v1/incidents/{incident_id}/investigation`
+Retrieves persisted investigation findings for an incident.
+- **Response (`200 OK`):** `InvestigationResult`
+- **Errors:** `404 Not Found` if incident does not exist or has not been investigated yet.
+
+### `GET /api/v1/incidents/{incident_id}/evidence`
+Retrieves the traceable `EvidenceBundle` (monitoring events, telemetry trends, queue metrics, topology edges, detector candidate) collected for an incident.
+- **Response (`200 OK`):** `EvidenceBundle`
+
+### `GET /api/v1/incidents/{incident_id}/timeline`
+Returns a chronological timeline combining monitoring events and SQLite `audit_logs` entries for the incident.
+- **Response (`200 OK`):** `IncidentTimelineResponse`
 
 ---
 

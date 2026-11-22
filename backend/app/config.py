@@ -21,8 +21,12 @@ class Settings(BaseSettings):
     environment: Literal["development", "test", "production"] = "development"
     api_v1_prefix: str = "/api/v1"
     database_url: str = "sqlite:///./data/nexus.db"
+    sim_tick_interval_seconds: float = 2.0
     ai_mode: Literal["auto", "llm", "deterministic"] = "deterministic"
     llm_api_key: str | None = None
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_model: str = "gpt-4o-mini"
+    llm_timeout_seconds: float = 8.0
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
