@@ -1,3 +1,4 @@
+import type { AuditCategory, AuditLogListResponse } from "../types/audit";
 import type { HealthResponse, SimulationStatusResponse } from "../types/health";
 import type {
   DetectedIncident,
@@ -143,4 +144,23 @@ export function fetchTopology(): Promise<TopologyResponse> {
 export async function fetchAllRemediations(): Promise<RemediationPlan[]> {
   const data = await requestJson<{ plans: RemediationPlan[] }>("/remediations");
   return data.plans;
+}
+
+export interface AuditQueryParams {
+  incidentId?: string | null;
+  actorType?: string | null;
+  category?: AuditCategory | null;
+  order?: "asc" | "desc";
+  limit?: number;
+}
+
+export function fetchAuditLogs(params: AuditQueryParams = {}): Promise<AuditLogListResponse> {
+  const query = new URLSearchParams();
+  if (params.incidentId) query.set("incident_id", params.incidentId);
+  if (params.actorType) query.set("actor_type", params.actorType);
+  if (params.category) query.set("category", params.category);
+  if (params.order) query.set("order", params.order);
+  if (params.limit) query.set("limit", String(params.limit));
+  const qs = query.toString();
+  return requestJson<AuditLogListResponse>(`/audit${qs ? `?${qs}` : ""}`);
 }

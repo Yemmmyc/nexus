@@ -18,6 +18,7 @@ import { TopologyView } from "./views/TopologyView";
 
 export function App() {
   const [activeSection, setActiveSection] = useState<NavSection>("overview");
+  const [focusedIncidentId, setFocusedIncidentId] = useState<string | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [simStatus, setSimStatus] = useState<SimulationStatusResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
@@ -116,8 +117,17 @@ export function App() {
               onResetSim={() => void runSimAction(resetSimulation)}
             />
           )}
-          {activeSection === "incidents" && <IncidentsView />}
-          {activeSection === "audit" && <AuditView />}
+          {activeSection === "incidents" && (
+            <IncidentsView initialIncidentId={focusedIncidentId} />
+          )}
+          {activeSection === "audit" && (
+            <AuditView
+              onOpenIncident={(incidentId) => {
+                setFocusedIncidentId(incidentId);
+                setActiveSection("incidents");
+              }}
+            />
+          )}
         </main>
       </div>
     </div>

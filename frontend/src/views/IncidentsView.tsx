@@ -66,9 +66,13 @@ function roleBadge(role: ServiceCausalRole): { label: string; cls: string } {
   }
 }
 
-export function IncidentsView() {
+interface IncidentsViewProps {
+  initialIncidentId?: string | null;
+}
+
+export function IncidentsView({ initialIncidentId = null }: IncidentsViewProps) {
   const [incidents, setIncidents] = useState<DetectedIncident[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialIncidentId);
   const [investigation, setInvestigation] = useState<InvestigationResult | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -104,6 +108,12 @@ export function IncidentsView() {
       setError(err instanceof Error ? err.message : "Failed to load incident details");
     }
   }, []);
+
+  useEffect(() => {
+    if (initialIncidentId) {
+      setSelectedId(initialIncidentId);
+    }
+  }, [initialIncidentId]);
 
   useEffect(() => {
     void loadIncidents();
