@@ -5,6 +5,7 @@ import type {
   InvestigationResult,
 } from "../types/incidents";
 import type { RemediationPlan, VerificationResult } from "../types/remediation";
+import type { TopologyResponse } from "../types/topology";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
 
@@ -133,4 +134,13 @@ export function executeRemediationPlan(planId: string): Promise<RemediationPlan>
 
 export function fetchRemediationVerification(planId: string): Promise<VerificationResult> {
   return requestJson<VerificationResult>(`/remediations/${planId}/verification`);
+}
+
+export function fetchTopology(): Promise<TopologyResponse> {
+  return requestJson<TopologyResponse>("/topology");
+}
+
+export async function fetchAllRemediations(): Promise<RemediationPlan[]> {
+  const data = await requestJson<{ plans: RemediationPlan[] }>("/remediations");
+  return data.plans;
 }

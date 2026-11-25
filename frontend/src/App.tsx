@@ -103,7 +103,19 @@ export function App() {
               onResetSim={() => void runSimAction(resetSimulation)}
             />
           )}
-          {activeSection === "topology" && <TopologyView />}
+          {activeSection === "topology" && (
+            <TopologyView
+              simStatus={simStatus}
+              isSimBusy={isSimBusy}
+              onStartSim={() => void runSimAction(startSimulation)}
+              onStopSim={() => void runSimAction(stopSimulation)}
+              onAdvanceTick={() => void runSimAction(() => advanceSimulation(1))}
+              onInjectDbCascade={() =>
+                void runSimAction(() => injectScenario("db_latency_cascade"))
+              }
+              onResetSim={() => void runSimAction(resetSimulation)}
+            />
+          )}
           {activeSection === "incidents" && <IncidentsView />}
           {activeSection === "audit" && <AuditView />}
         </main>

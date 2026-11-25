@@ -37,3 +37,21 @@
   background: #334869;
 }
 
+/* Dark obsidian styling for React Flow controls & minimap */
+.nexus-rf-controls button {
+  background-color: #0c121b !important;
+  border-color: #223047 !important;
+  color: #cbd5e1 !important;
+}
+
+.nexus-rf-controls button:hover {
+  background-color: #162030 !important;
+  color: #22d3ee !important;
+}
+
+.nexus-rf-minimap {
+  background-color: #0c121b !important;
+  border: 1px solid #223047 !important;
+  border-radius: 0.5rem;
+}
+
