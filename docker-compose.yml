@@ -1,0 +1,58 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexus-backend
+    ports:
+      - "${NEXUS_BACKEND_PORT:-8010}:8010"
+    environment:
+      NEXUS_APP_NAME: "${NEXUS_APP_NAME:-NEXUS}"
+      NEXUS_ENVIRONMENT: "${NEXUS_ENVIRONMENT:-development}"
+      NEXUS_DATABASE_URL: "sqlite:////app/data/nexus.db"
+      NEXUS_SIM_TICK_INTERVAL_SECONDS: "${NEXUS_SIM_TICK_INTERVAL_SECONDS:-2.0}"
+      NEXUS_AI_MODE: "${NEXUS_AI_MODE:-deterministic}"
+      NEXUS_LLM_API_KEY: "${NEXUS_LLM_API_KEY:-}"
+      NEXUS_LLM_BASE_URL: "${NEXUS_LLM_BASE_URL:-https://api.openai.com/v1}"
+      NEXUS_LLM_MODEL: "${NEXUS_LLM_MODEL:-gpt-4o-mini}"
+      NEXUS_CORS_ORIGINS: '${NEXUS_CORS_ORIGINS:-["http://localhost:5173","http://127.0.0.1:5173","http://localhost:3000"]}'
+    volumes:
+      - nexus_sqlite_data:/app/data
+    networks:
+      - nexus_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/api/v1/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: "${VITE_API_BASE_URL:-/api/v1}"
+    container_name: nexus-frontend
+    ports:
+      - "${NEXUS_FRONTEND_PORT:-5173}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - nexus_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+networks:
+  nexus_net:
+    driver: bridge
+
+volumes:
+  nexus_sqlite_data:
